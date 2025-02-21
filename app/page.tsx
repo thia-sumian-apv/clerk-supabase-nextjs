@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSession, useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,8 +12,8 @@ export default function Home() {
   // The `useSession()` hook will be used to get the Clerk session object
   const { session } = useSession();
 
-  // Create a custom supabase client that injects the Clerk Supabase token into the request headers
-  function createClerkSupabaseClient() {
+  // Move client creation into useMemo to maintain consistent reference
+  const client = useMemo(() => {
     return createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_KEY!,
@@ -38,10 +38,7 @@ export default function Home() {
         },
       }
     );
-  }
-
-  // Create a `client` object for accessing Supabase data using the Clerk token
-  const client = createClerkSupabaseClient();
+  }, [session]);
 
   // This `useEffect` will wait for the User object to be loaded before requesting
   // the tasks for the logged in user
@@ -56,7 +53,7 @@ export default function Home() {
     }
 
     loadTasks();
-  }, [user]);
+  }, [user, client]);
 
   async function createTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,7 +72,7 @@ export default function Home() {
 
       {!loading &&
         tasks.length > 0 &&
-        tasks.map((task: any) => <p>{task.name}</p>)}
+        tasks.map((task: any) => <p key={task.id}>{task.name}</p>)}
 
       {!loading && tasks.length === 0 && <p>No tasks found</p>}
 
