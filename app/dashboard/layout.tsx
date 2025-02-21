@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import Sidebar from "../../components/Sidebar";
-import Header from "../../components/Header";
+import Sidebar from "../../components/sidebar/Sidebar";
+import Header from "../../components/header/Header";
 
 export default function DashboardLayout({
   children,
