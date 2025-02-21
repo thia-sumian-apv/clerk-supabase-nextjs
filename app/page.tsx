@@ -19,21 +19,54 @@ export default function Home() {
       process.env.NEXT_PUBLIC_SUPABASE_KEY!,
       {
         global: {
-          // Get the custom Supabase token from Clerk
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
+          },
           fetch: async (url, options = {}) => {
-            const clerkToken = await session?.getToken({
-              template: 'supabase',
-            });
+            try {
+              const clerkToken = await session?.getToken({
+                template: 'supabase',
+              });
+              
+              console.log('Clerk token generated:', !!clerkToken);
+              
+              if (!clerkToken) {
+                console.error('No Clerk token available');
+                throw new Error('Authentication token not available');
+              }
 
-            // Insert the Clerk Supabase token into the headers
-            const headers = new Headers(options?.headers);
-            headers.set('Authorization', `Bearer ${clerkToken}`);
+              // Create headers with both API key and Authorization token
+              const headers = new Headers(options?.headers);
+              headers.set('Authorization', `Bearer ${clerkToken}`);
+              headers.set('apikey', process.env.NEXT_PUBLIC_SUPABASE_KEY!);
 
-            // Now call the default fetch
-            return fetch(url, {
-              ...options,
-              headers,
-            });
+              // Debug the request
+              console.log('Request headers:', {
+                authorization: headers.get('Authorization')?.substring(0, 20) + '...',
+                apikey: headers.get('apikey')?.substring(0, 20) + '...',
+              });
+
+              const response = await fetch(url, {
+                ...options,
+                headers,
+              });
+
+              if (!response.ok) {
+                console.error('Supabase request failed:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  url,
+                });
+                // Log the response body for debugging
+                const errorBody = await response.clone().text();
+                console.error('Error response body:', errorBody);
+              }
+
+              return response;
+            } catch (error) {
+              console.error('Error in Supabase fetch:', error);
+              throw error;
+            }
           },
         },
       }
@@ -48,20 +81,57 @@ export default function Home() {
     async function loadTasks() {
       setLoading(true);
       const { data, error } = await client.from('tasks').select();
-      if (!error) setTasks(data);
+      if (error) {
+        console.error('Error loading tasks:', error);
+        return;
+      }
+      if (data) setTasks(data);
       setLoading(false);
     }
 
     loadTasks();
+
+    // Set up real-time subscription
+    const subscription = client
+      .channel('tasks-channel')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tasks' },
+        (payload) => {
+          // Handle different types of changes
+          if (payload.eventType === 'INSERT') {
+            setTasks(prevTasks => [...prevTasks, payload.new]);
+          }
+          // Add other event types if needed (UPDATE, DELETE)
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [user, client]);
 
   async function createTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Insert task into the "tasks" database
-    await client.from('tasks').insert({
-      name,
-    });
-    window.location.reload();
+    try {
+      // Insert task into the "tasks" database
+      const { data, error } = await client.from('tasks').insert({
+        name,
+      }).select();  // Add .select() to get the created task
+
+      if (error) {
+        console.error('Error creating task:', error);
+        return;
+      }
+
+      // Update the local state with the new task
+      setTasks(prevTasks => [...prevTasks, data[0]]);
+      // Clear the input
+      setName('');
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
   }
 
   return (
