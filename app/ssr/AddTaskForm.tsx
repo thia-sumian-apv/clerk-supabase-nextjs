@@ -1,16 +1,16 @@
-'use client';
-import React, { useState } from 'react';
-import { addTask } from './actions';
-import { useRouter } from 'next/navigation';
+'use client'
+import React, { useState } from 'react'
+import { addTask } from './actions'
+import { useRouter } from 'next/navigation'
 
 function AddTaskForm() {
-  const [taskName, setTaskName] = useState('');
-  const router = useRouter();
+  const [taskName, setTaskName] = useState('')
+  const router = useRouter()
 
   async function onSubmit() {
-    await addTask(taskName);
-    setTaskName('');
-    router.refresh();
+    await addTask(taskName)
+    setTaskName('')
+    router.refresh()
   }
 
   return (
@@ -25,6 +25,6 @@ function AddTaskForm() {
       />
       <button type="submit">Add</button>
     </form>
-  );
+  )
 }
-export default AddTaskForm;
+export default AddTaskForm
