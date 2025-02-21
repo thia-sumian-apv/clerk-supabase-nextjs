@@ -91,26 +91,53 @@ export default function Home() {
 
     loadTasks();
 
-    // Set up real-time subscription
-    const subscription = client
-      .channel('tasks-channel')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tasks' },
-        (payload) => {
-          // Handle different types of changes
-          if (payload.eventType === 'INSERT') {
-            setTasks(prevTasks => [...prevTasks, payload.new]);
-          }
-          // Add other event types if needed (UPDATE, DELETE)
-        }
-      )
-      .subscribe();
+    // Set up real-time subscription with auth
+    const setupRealtimeSubscription = async () => {
+      try {
+        const clerkToken = await session?.getToken({
+          template: 'supabase',
+        });
 
-    // Cleanup subscription
-    return () => {
-      subscription.unsubscribe();
+        if (!clerkToken) {
+          console.error('No Clerk token available for realtime subscription');
+          return;
+        }
+
+        // Configure the channel with authentication
+        const subscription = client
+          .channel('tasks-channel')
+          .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'tasks' },
+            (payload) => {
+              console.log('Received realtime update:', payload);
+              if (payload.eventType === 'INSERT') {
+                setTasks(prevTasks => [...prevTasks, payload.new]);
+              } else if (payload.eventType === 'DELETE') {
+                setTasks(prevTasks => prevTasks.filter(task => task.id !== payload.old.id));
+              } else if (payload.eventType === 'UPDATE') {
+                setTasks(prevTasks => prevTasks.map(task => 
+                  task.id === payload.new.id ? payload.new : task
+                ));
+              }
+            }
+          )
+          .subscribe();
+
+        // Return cleanup function
+        return () => {
+          console.log('Cleaning up realtime subscription');
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Error setting up realtime subscription:', error);
+      }
     };
-  }, [user, client]);
+
+    const cleanup = setupRealtimeSubscription();
+    return () => {
+      cleanup?.then(cleanupFn => cleanupFn?.());
+    };
+  }, [user, client, session]);
 
   async function createTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
