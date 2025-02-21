@@ -7,10 +7,10 @@ export default function UserProfile() {
   const { user } = useUser()
   
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2 sm:gap-4">
       {/* User Info */}
-      <div className="text-right mr-2">
-        <div className="text-sm font-medium text-gray-900">
+      <div className="hidden sm:block text-right mr-2">
+        <div className="text-sm font-medium text-gray-900 truncate max-w-[240px]">
           {user?.emailAddresses[0]?.emailAddress}
         </div>
         <div className="text-xs text-gray-500">
@@ -19,7 +19,7 @@ export default function UserProfile() {
       </div>
 
       {/* Divider */}
-      <div className="h-8 w-px bg-gray-200"></div>
+      <div className="hidden sm:block h-8 w-px bg-gray-200"></div>
 
       {/* User Button */}
       <div className="flex items-center">
